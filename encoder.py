@@ -1,5 +1,5 @@
 # TransformerEncoder
-# text ==> token ==> embeddingsLayer ==> TransformerEncoderLayer ==> output
+# text ==> tokenizer ==> Positional Embeddings ==> LayerNorm1 ==> MultiHeadAttention ==> LayerNorm2 ==> FeedForward
 
 import torch
 from torch import nn
@@ -19,7 +19,7 @@ class AttentionHead(nn.Module):
 
     def forward(self, query, key, value, mask=None):
         query, key, value = self.q(query), self.k(key), self.v(value)
-        # 使用点积作为相似度函数
+
         scores = torch.bmm(query, key.transpose(1, 2)) / sqrt(query.size(-1))
 
         if mask is not None:
@@ -29,6 +29,8 @@ class AttentionHead(nn.Module):
 
         return torch.bmm(weights, value)
 
+
+# MultiHeadAttention(Q, K, V) = Concat(head1, head2,...headn).Linear()
 class MultiHeadAttention(nn.Module):
     def __init__(self, config):
         super().__init__()
@@ -43,10 +45,13 @@ class MultiHeadAttention(nn.Module):
     def forward(self, query, key, value, mask=None, query_mask=None, key_mask=None):
         if query_mask is not None and key_mask is not None:
             mask = torch.bmm(query_mask.unsqueeze(-1), key_mask.unsqueeze(1))
+
         x = torch.cat([h(query, key, value, mask) for h in self.heads], dim=-1)
+        
         x = self.output_linear(x)
         return x
 
+# 增加两层网络来增强模型的能力
 class FeedForward(nn.Module):
     def __init__(self, config):
         super().__init__()
@@ -66,6 +71,7 @@ class FeedForward(nn.Module):
 class TransformerEncoderLayer(nn.Module):
     def __init__(self, config):
         super().__init__()
+        # 标准化
         self.layer_norm_1 = nn.LayerNorm(config.hidden_size)
         self.layer_norm_2 = nn.LayerNorm(config.hidden_size)
         self.attention = MultiHeadAttention(config)
@@ -80,6 +86,7 @@ class TransformerEncoderLayer(nn.Module):
         x = x + self.feed_forward(self.layer_norm_2(x))
         return x
 
+# Positional Embeddings
 class Embeddings(nn.Module):
     def __init__(self, config):
         super().__init__()
