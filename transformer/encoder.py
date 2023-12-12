@@ -123,6 +123,8 @@ class TransformerEncoder(nn.Module):
         for layer in self.layers:
             x = layer(x, mask)
         return x
+    
+
 
 if __name__ == '__main__':
 
@@ -130,9 +132,33 @@ if __name__ == '__main__':
     tokenizer = AutoTokenizer.from_pretrained(model_ckpt)
     config = AutoConfig.from_pretrained(model_ckpt)
 
-    text = "time flies like an arrow"
+    text = "你好"
     inputs = tokenizer(text, return_tensors="pt", add_special_tokens=False)
+
+    print('inputs', inputs)
 
     encoder = TransformerEncoder(config)
     print('input_ids', encoder(inputs.input_ids))
     print('input_size', encoder(inputs.input_ids).size())
+
+    output =  encoder(inputs.input_ids)
+
+    # softmax 归一化
+    generator = nn.Linear(config.hidden_size, tokenizer.vocab_size)
+    logits = generator(output)
+    probabilities = F.softmax(logits, dim=-1)
+
+    # 生成概率分布
+    print('Probabilities:', probabilities)
+
+    # 预测下一个词
+    _, predicted_indices = torch.max(probabilities, dim=-1)
+
+    # 选择第一个位置的预测词
+    predicted_index = predicted_indices[0, 0].item()
+
+    # 使用tokenizer.decode将索引转换为文本
+    predicted_word = tokenizer.decode(predicted_index)
+
+    print('Predicted Word:', predicted_word)
+    
